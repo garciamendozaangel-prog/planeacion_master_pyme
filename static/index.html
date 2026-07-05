@@ -32,6 +32,19 @@
         <label>Contraseña (mínimo 8 caracteres) <input id="registerPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
         <button type="submit" class="btn primary">Crear cuenta</button>
       </form>
+      <button id="linkForgot" class="forgot-link" type="button">¿Olvidaste tu contraseña?</button>
+      <form id="forgotForm" class="auth-form" hidden>
+        <p>Escribe tu correo y te enviaremos un enlace para restablecer la contraseña.</p>
+        <label>Correo <input id="forgotEmail" type="email" autocomplete="email" required /></label>
+        <button type="submit" class="btn primary">Enviar enlace</button>
+        <button type="button" id="backToLogin" class="btn secondary">Volver</button>
+      </form>
+      <form id="resetForm" class="auth-form" hidden>
+        <p>Crea tu nueva contraseña.</p>
+        <label>Nueva contraseña (mínimo 8 caracteres) <input id="resetPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
+        <button type="submit" class="btn primary">Guardar contraseña</button>
+      </form>
+      <p id="authInfo" class="auth-info" hidden></p>
       <p id="authError" class="auth-error" hidden></p>
     </div>
   </div>
@@ -250,6 +263,54 @@
       <div id="meetingsTable" class="table-card"></div>
     </section>
 
+    <section class="panel" data-panel="datos">
+      <div class="panel-header">
+        <span class="pill">Paso 12</span>
+        <h2>Cargar ventas y datos</h2>
+        <p>Importa tus ventas, gastos e inventario desde Excel (.xlsx) o CSV. La primera fila debe tener los nombres de las columnas.</p>
+      </div>
+      <section class="kpi-grid" id="dataStatus" style="grid-template-columns:repeat(3,minmax(0,1fr))"></section>
+      <div class="entry-row" style="grid-template-columns: 200px 1fr 180px">
+        <select id="dataType">
+          <option value="sales">Ventas</option>
+          <option value="expenses">Gastos</option>
+          <option value="inventory">Inventario</option>
+        </select>
+        <input id="dataFile" type="file" accept=".xlsx,.xls,.csv" />
+        <button id="btnProcessData" class="btn primary" type="button">Cargar archivo</button>
+      </div>
+      <div id="dataStatusMsg" class="recommendations" style="margin-bottom:16px"></div>
+      <div class="chart-card" style="padding:18px">
+        <h3>¿No sabes qué formato usar? Descarga una plantilla</h3>
+        <p style="margin-bottom:12px">Ábrela en Excel, llénala con tus datos y súbela aquí. Columnas reconocidas:</p>
+        <p><strong>Ventas:</strong> fecha, producto, categoria, cantidad, precio, costo, total, canal, cliente (obligatorias: fecha y producto)</p>
+        <p><strong>Gastos:</strong> fecha, categoria, concepto, monto, area (obligatorias: fecha y monto)</p>
+        <p style="margin-bottom:14px"><strong>Inventario:</strong> producto, categoria, stock, costo, precio, stock_minimo (obligatorias: producto y stock)</p>
+        <div class="actions" style="justify-content:start">
+          <button id="btnTplVentas" class="btn secondary" type="button">Plantilla ventas</button>
+          <button id="btnTplGastos" class="btn secondary" type="button">Plantilla gastos</button>
+          <button id="btnTplInventario" class="btn secondary" type="button">Plantilla inventario</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="reportes">
+      <div class="panel-header">
+        <span class="pill">Paso 13</span>
+        <h2>Reportes de ventas y finanzas</h2>
+        <p>Ventas, rentabilidad, gastos e inventario calculados automáticamente con los datos que cargaste en el Paso 12.</p>
+      </div>
+      <section class="kpi-grid" id="reportKpis" style="grid-template-columns:repeat(3,minmax(0,1fr))"></section>
+      <div class="dashboard-grid">
+        <div class="chart-card"><h3>Ventas por mes</h3><canvas id="salesChart" width="900" height="360"></canvas></div>
+        <div class="chart-card"><h3>Gastos por categoría</h3><canvas id="expensesChart" width="900" height="360"></canvas></div>
+        <div class="chart-card"><h3>Rentabilidad por producto (top 10 por venta)</h3><div id="topProductsTable" class="table-card"></div></div>
+        <div class="chart-card"><h3>Ventas por canal</h3><div id="channelTable" class="table-card"></div></div>
+        <div class="chart-card"><h3>Detalle de gastos</h3><div id="expensesTable" class="table-card"></div></div>
+        <div class="chart-card"><h3>Inventario y reposición</h3><div id="inventoryTable" class="table-card"></div></div>
+      </div>
+    </section>
+
     <section class="panel" data-panel="dashboard">
       <div class="panel-header">
         <span class="pill">Paso 11</span>
@@ -270,6 +331,7 @@
   </main>
   </div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

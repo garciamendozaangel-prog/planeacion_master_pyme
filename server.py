@@ -258,6 +258,36 @@ def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     return salt, digest
 
 
+def send_reset_email(to_email: str, link: str) -> bool:
+    """Envía el enlace de recuperación. Si no hay SMTP configurado, lo imprime en los logs."""
+    host = os.environ.get("SMTP_HOST")
+    user = os.environ.get("SMTP_USER")
+    password = os.environ.get("SMTP_PASS")
+    if not (host and user and password):
+        print(f"[RECUPERACION] Enlace para {to_email}: {link}", flush=True)
+        return False
+    import smtplib
+    from email.message import EmailMessage
+    msg = EmailMessage()
+    msg["Subject"] = "Restablece tu contraseña - Planeación Master PYME"
+    msg["From"] = os.environ.get("SMTP_FROM", user)
+    msg["To"] = to_email
+    msg.set_content(
+        "Hola,\n\nPara restablecer tu contraseña entra a:\n" + link +
+        "\n\nEl enlace vence en 30 minutos. Si no lo solicitaste, ignora este correo."
+    )
+    try:
+        port = int(os.environ.get("SMTP_PORT", "587"))
+        with smtplib.SMTP(host, port, timeout=20) as smtp:
+            smtp.starttls()
+            smtp.login(user, password)
+            smtp.send_message(msg)
+        return True
+    except Exception as exc:
+        print(f"[RECUPERACION] Error enviando correo: {exc}. Enlace: {link}", flush=True)
+        return False
+
+
 def connect() -> sqlite3.Connection:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     con = sqlite3.connect(DB_PATH)
@@ -313,6 +343,17 @@ def init_db() -> None:
                 created_at TEXT NOT NULL,
                 PRIMARY KEY (company_id, user_id),
                 FOREIGN KEY(company_id) REFERENCES companies(id),
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+            """
+        )
+        con.execute(
+            """
+            CREATE TABLE IF NOT EXISTS reset_tokens (
+                token TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
                 FOREIGN KEY(user_id) REFERENCES users(id)
             )
             """
@@ -493,6 +534,44 @@ class AppHandler(BaseHTTPRequestHandler):
                     con.execute("DELETE FROM sessions WHERE token=?", (token,))
             headers = [("Set-Cookie", "pm_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0")]
             return self._json({"ok": True}, 200, headers)
+
+        if parsed.path == "/api/auth/forgot":
+            email = (data.get("email") or "").strip().lower()
+            with connect() as con:
+                row = con.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone()
+            if row:
+                token = secrets.token_hex(24)
+                expires = (datetime.now(timezone.utc) + timedelta(minutes=30)).isoformat()
+                with connect() as con:
+                    con.execute(
+                        "INSERT INTO reset_tokens(token, user_id, expires_at, created_at) VALUES(?,?,?,?)",
+                        (token, row["id"], expires, now_iso()),
+                    )
+                host = self.headers.get("Host") or f"localhost:{PORT}"
+                scheme = "http" if host.startswith("localhost") or host.startswith("127.") else "https"
+                link = f"{scheme}://{host}/?reset={token}"
+                send_reset_email(email, link)
+            return self._json({"ok": True, "message": "Si el correo está registrado, enviamos un enlace de recuperación."})
+
+        if parsed.path == "/api/auth/reset":
+            token = data.get("token") or ""
+            password = data.get("password") or ""
+            if len(password) < 8:
+                return self._json({"error": "La contraseña debe tener mínimo 8 caracteres"}, 400)
+            with connect() as con:
+                row = con.execute("SELECT * FROM reset_tokens WHERE token=?", (token,)).fetchone()
+            if not row or row["expires_at"] < now_iso():
+                return self._json({"error": "El enlace no es válido o ya venció. Solicita uno nuevo."}, 400)
+            salt, digest = hash_password(password)
+            with connect() as con:
+                con.execute("UPDATE users SET password_salt=?, password_hash=? WHERE id=?", (salt, digest, row["user_id"]))
+                con.execute("DELETE FROM reset_tokens WHERE token=?", (token,))
+                con.execute("DELETE FROM sessions WHERE user_id=?", (row["user_id"],))
+            headers = self._create_session(row["user_id"])
+            with connect() as con:
+                user_row = con.execute("SELECT id, email, name FROM users WHERE id=?", (row["user_id"],)).fetchone()
+            user = {"id": user_row["id"], "email": user_row["email"], "name": user_row["name"]}
+            return self._json({"user": user, "companies": self._user_companies(user["id"])}, 200, headers)
 
         if parsed.path == "/api/companies":
             user = self._require_user()

@@ -1,4 +1,5 @@
-[hidden] { display: none !important; }:root {
+[hidden] { display: none !important; }
+:root {
   --bg: #f6f7fb;
   --panel: #ffffff;
   --ink: #111827;
@@ -103,6 +104,10 @@ canvas { max-width: 100%; border-radius: 14px; background: #fff; }
 .auth-tab.active { background: white; color: var(--ink); box-shadow: 0 2px 8px rgba(0,0,0,.08); }
 .auth-form { display: grid; gap: 12px; }
 .auth-error { color: var(--danger); font-weight: 700; font-size: 14px; }
+.auth-info { color: var(--primary-dark); font-weight: 700; font-size: 14px; }
+.forgot-link { all: unset; cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 700; text-decoration: underline; justify-self: start; }
+.forgot-link:hover { color: var(--primary-dark); }
+button:disabled { opacity: .6; cursor: wait; }
 
 @media (max-width: 980px) {
   .sidebar { position: static; width: auto; }
