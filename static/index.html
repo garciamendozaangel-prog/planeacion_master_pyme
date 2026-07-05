@@ -269,12 +269,13 @@
         <h2>Cargar ventas y datos</h2>
         <p>Importa tus ventas, gastos e inventario desde Excel (.xlsx) o CSV. La primera fila debe tener los nombres de las columnas.</p>
       </div>
-      <section class="kpi-grid" id="dataStatus" style="grid-template-columns:repeat(3,minmax(0,1fr))"></section>
+      <section class="kpi-grid" id="dataStatus" style="grid-template-columns:repeat(4,minmax(0,1fr))"></section>
       <div class="entry-row" style="grid-template-columns: 200px 1fr 180px">
         <select id="dataType">
           <option value="sales">Ventas</option>
           <option value="expenses">Gastos</option>
           <option value="inventory">Inventario</option>
+          <option value="recipes">Recetas (insumos por producto)</option>
         </select>
         <input id="dataFile" type="file" accept=".xlsx,.xls,.csv" />
         <button id="btnProcessData" class="btn primary" type="button">Cargar archivo</button>
@@ -308,6 +309,49 @@
         <div class="chart-card"><h3>Ventas por canal</h3><div id="channelTable" class="table-card"></div></div>
         <div class="chart-card"><h3>Detalle de gastos</h3><div id="expensesTable" class="table-card"></div></div>
         <div class="chart-card"><h3>Inventario y reposición</h3><div id="inventoryTable" class="table-card"></div></div>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="simulador">
+      <div class="panel-header">
+        <span class="pill">Paso 15</span>
+        <h2>Simulador de producción e insumos</h2>
+        <p>Pronostica cuánto necesitas de cada insumo (peso, volumen o unidades) según tu demanda. Se alimenta de tus ventas reales del Paso 12 y cruza con tu inventario para sugerirte compras.</p>
+      </div>
+
+      <div class="chart-card" style="padding:18px; margin-bottom:16px">
+        <h3>1 · Recetas: insumos por unidad de producto</h3>
+        <p style="margin-bottom:12px">Ejemplo: 1 Taco de pastor = 60 g de carne de pastor + 1 tortilla + 35 g de masa. También puedes subirlas con Excel en el Paso 12 eligiendo "Recetas".</p>
+        <div class="entry-row wrap" style="grid-template-columns:repeat(7,minmax(120px,1fr))">
+          <input id="recipeProduct" placeholder="Producto (ej: Taco pastor)" />
+          <input id="recipeIngredient" placeholder="Insumo (ej: Carne pastor)" />
+          <input id="recipeQty" type="number" step="any" min="0" placeholder="Cantidad" />
+          <select id="recipeUnit"><option>g</option><option>kg</option><option>ml</option><option>l</option><option>unidad</option></select>
+          <input id="recipeCost" type="number" step="any" min="0" placeholder="Costo por unidad (opc)" title="Costo del insumo por g/ml/unidad" />
+          <input id="recipeYield" type="number" min="1" max="100" placeholder="Rendim. % (opc)" title="Ej: la carne rinde 65% al cocinarse" />
+          <button id="addRecipe" class="btn primary" type="button">Agregar</button>
+        </div>
+        <div id="recipesTable" class="table-card"></div>
+        <p style="margin-top:10px"><button id="btnTplRecetas" class="btn secondary" type="button">Descargar plantilla de recetas (ejemplo taquería)</button></p>
+      </div>
+
+      <div class="chart-card" style="padding:18px; margin-bottom:16px">
+        <h3>2 · Escenario del pronóstico</h3>
+        <div class="sim-params">
+          <label>Horizonte (días) <input id="simDays" type="number" min="1" max="90" value="7" /></label>
+          <label>Crecimiento esperado <strong id="simGrowthLabel">0%</strong> <input id="simGrowth" type="range" min="-50" max="100" value="0" /></label>
+          <label>Stock de seguridad <strong id="simSafetyLabel">20%</strong> <input id="simSafety" type="range" min="0" max="50" value="20" /></label>
+          <label>Rendimiento global <strong id="simYieldLabel">100%</strong> <input id="simYield" type="range" min="30" max="100" value="100" /></label>
+        </div>
+        <h3 style="margin-top:16px">3 · Demanda diaria por producto</h3>
+        <p style="margin-bottom:10px">Pre-cargada con el promedio real de tus ventas si lo tienes. Cámbiala para simular escenarios.</p>
+        <div id="simDemandTable" class="table-card"></div>
+      </div>
+
+      <div class="chart-card" style="padding:18px">
+        <h3>4 · Necesidad de insumos y compras sugeridas</h3>
+        <section class="kpi-grid" id="simKpis" style="grid-template-columns:repeat(3,minmax(0,1fr)); margin:0 0 14px"></section>
+        <div id="simResults" class="table-card"></div>
       </div>
     </section>
 

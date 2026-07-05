@@ -7,7 +7,8 @@ const panels = [
   ['empresa', '1. Empresa'], ['circulo', '2. Círculo dorado'], ['diagnostico', '3. Diagnóstico'], ['foda', '4. FODA'],
   ['pestel', '5. PESTEL'], ['objetivos', '6. SMART'], ['estrategias', '7. Estrategias'], ['presupuesto', '8. Presupuesto'],
   ['kpis', '9. KPIs'], ['seguimiento', '10. Seguimiento'], ['dashboard', '11. Dashboard'],
-  ['datos', '12. Datos'], ['reportes', '13. Reportes'], ['onepager', '14. One Pager']
+  ['datos', '12. Datos'], ['reportes', '13. Reportes'], ['onepager', '14. One Pager'],
+  ['simulador', '15. Simulador']
 ];
 
 let schema = null;
@@ -28,7 +29,9 @@ function emptyState() {
     budget: [],
     kpis: [],
     meetings: [],
-    datasets: { sales: [], expenses: [], inventory: [] }
+    datasets: { sales: [], expenses: [], inventory: [] },
+    recipes: [],
+    simulator: { days: 7, growth: 0, safety: 20, yield: 100, demand: {} }
   };
 }
 function cacheKey(){ return `pm_state_${companyId || 'draft'}`; }
@@ -265,6 +268,11 @@ function hydrateForms(){
   $('companySector').value = state.company.sector || '';
   $('companyEmployees').value = state.company.employees || '';
   $('companyRevenue').value = state.company.revenue || '';
+  const sim = simState();
+  if($('simDays')){
+    $('simDays').value = sim.days; $('simGrowth').value = sim.growth; $('simSafety').value = sim.safety; $('simYield').value = sim.yield;
+    $('simGrowthLabel').textContent = sim.growth + '%'; $('simSafetyLabel').textContent = sim.safety + '%'; $('simYieldLabel').textContent = sim.yield + '%';
+  }
   $('why').value = state.goldenCircle.why || '';
   $('how').value = state.goldenCircle.how || '';
   $('what').value = state.goldenCircle.what || '';
@@ -332,6 +340,27 @@ function bindEvents(){
   $('btnTplGastos').onclick = () => downloadTemplate('expenses');
   $('btnTplInventario').onclick = () => downloadTemplate('inventory');
   $('btnPrintOnePager').onclick = () => { collectFormState(); renderOnePager(); window.print(); };
+  $('addRecipe').onclick = () => {
+    const row = {
+      producto: $('recipeProduct').value.trim(), insumo: $('recipeIngredient').value.trim(),
+      cantidad: Number($('recipeQty').value) || 0, unidad: $('recipeUnit').value,
+      costo: Number($('recipeCost').value) || 0, rendimiento: Number($('recipeYield').value) || 0
+    };
+    if(!row.producto || !row.insumo || !row.cantidad) return alert('Producto, insumo y cantidad son obligatorios.');
+    if(!state.recipes) state.recipes = [];
+    state.recipes.push(row);
+    ['recipeProduct','recipeIngredient','recipeQty','recipeCost','recipeYield'].forEach(id => $(id).value = '');
+    persist();
+  };
+  $('btnTplRecetas').onclick = () => downloadTemplate('recipes');
+  $('simDays').addEventListener('change', e => { simState().days = Math.max(1, Number(e.target.value) || 7); });
+  [['simGrowth','growth','simGrowthLabel'],['simSafety','safety','simSafetyLabel'],['simYield','yield','simYieldLabel']].forEach(([id, key, labelId]) => {
+    $(id).addEventListener('input', e => {
+      simState()[key] = Number(e.target.value);
+      $(labelId).textContent = e.target.value + '%';
+      renderSimResults();
+    });
+  });
   $('btnExport').onclick = exportJson;
   $('btnDemo').onclick = loadDemo;
   $('btnSave').onclick = savePlan;
@@ -357,6 +386,7 @@ function renderAll(){
   renderDataStatus();
   renderReports();
   renderOnePager();
+  renderSimulator();
 }
 function diagnosticScore(){
   const totalWeight = schema.diagnostic_questions.reduce((a,q)=>a+q.weight,0);
@@ -625,6 +655,20 @@ const DATASET_DEFS = {
     template: 'fecha,categoria,concepto,monto,area\n2026-07-02,Servicios,Energia electrica,850000,Operaciones',
     filename: 'plantilla_gastos.csv'
   },
+  recipes: {
+    label: 'Recetas',
+    fields: {
+      producto: ['producto','plato','item','articulo'],
+      insumo: ['insumo','ingrediente','material','componente','materia_prima'],
+      cantidad: ['cantidad','cantidad_por_unidad','qty','consumo','cantidad_unidad'],
+      unidad: ['unidad','um','medida','unit'],
+      costo: ['costo','costo_unitario','costo_insumo'],
+      rendimiento: ['rendimiento','yield','rendimiento_pct']
+    },
+    required: ['producto','insumo','cantidad'],
+    template: 'producto,insumo,cantidad,unidad,costo,rendimiento\nTaco de Pastor,Carne de pastor,60,g,38,65\nTaco de Pastor,Tortilla,1,unidad,300,\nTaco de Pastor,Masa,35,g,6,\nTaco de Birria,Carne de birria,60,g,42,65\nTaco de Birria,Tortilla,1,unidad,300,\nTaco de Birria,Masa,35,g,6,',
+    filename: 'plantilla_recetas.csv'
+  },
   inventory: {
     label: 'Inventario',
     fields: {
@@ -708,12 +752,13 @@ async function processDataFile(){
       const o = {};
       Object.entries(map).forEach(([field, col]) => { o[field] = r[col]; });
       if('fecha' in o) o.fecha = toIsoDate(o.fecha);
-      ['cantidad','precio','costo','total','monto','stock','minimo'].forEach(k => { if(k in o) o[k] = toNum(o[k]); });
+      ['cantidad','precio','costo','total','monto','stock','minimo','rendimiento'].forEach(k => { if(k in o) o[k] = toNum(o[k]); });
       Object.keys(o).forEach(k => { if(typeof o[k] === 'string') o[k] = o[k].trim(); });
       return o;
     }).filter(r => Object.values(r).some(v => v !== '' && v !== 0 && v !== null && v !== undefined));
     if(!state.datasets) state.datasets = { sales: [], expenses: [], inventory: [] };
-    state.datasets[tipo] = clean;
+    if(tipo === 'recipes') state.recipes = clean;
+    else state.datasets[tipo] = clean;
     fileInput.value = '';
     persist();
     status(`✅ ${fmtNum(clean.length)} registros de ${def.label} cargados${rows.length > MAX ? ` (se limitó a ${fmtNum(MAX)})` : ''}. Revisa el paso 13 (Reportes) y pulsa <strong>Guardar</strong> para conservarlos en el servidor.`, 'alert-good');
@@ -731,16 +776,23 @@ function downloadTemplate(tipo){
   a.click(); URL.revokeObjectURL(url);
 }
 
+function datasetRows(key){
+  if(key === 'recipes') return state.recipes || [];
+  return ((state.datasets || {})[key]) || [];
+}
 function renderDataStatus(){
   const el = $('dataStatus'); if(!el) return;
   el.innerHTML = Object.entries(DATASET_DEFS).map(([key, def]) => {
-    const n = ((state.datasets || {})[key] || []).length;
+    const n = datasetRows(key).length;
     return `<div class="kpi-card"><small>${def.label}</small><strong>${fmtNum(n)}</strong><span>registros cargados${n ? ` · <span class="delete" onclick="clearDataset('${key}')">Borrar</span>` : ''}</span></div>`;
   }).join('');
 }
 function clearDataset(key){
-  if(!state.datasets) state.datasets = { sales: [], expenses: [], inventory: [] };
-  state.datasets[key] = [];
+  if(key === 'recipes'){ state.recipes = []; }
+  else {
+    if(!state.datasets) state.datasets = { sales: [], expenses: [], inventory: [] };
+    state.datasets[key] = [];
+  }
   persist();
 }
 window.clearDataset = clearDataset;
@@ -864,6 +916,128 @@ function drawReportCharts(s, g){
     const cats = Object.entries(g.byCat).sort((a,b) => b[1] - a[1]).slice(0, 8);
     if(cats.length) drawBarChart(ctx, cats.map(c => c[0]), cats.map(c => c[1]), '$');
   }
+}
+
+// ===== Simulador de producción e insumos =====
+function simState(){
+  if(!state.simulator) state.simulator = { days: 7, growth: 0, safety: 20, yield: 100, demand: {} };
+  if(!state.simulator.demand) state.simulator.demand = {};
+  return state.simulator;
+}
+function recipeRows(){ return state.recipes || []; }
+function simProducts(){ return [...new Set(recipeRows().map(r => r.producto).filter(Boolean))]; }
+
+function salesDailyAvg(){
+  const rows = salesRows();
+  const days = new Set(rows.map(r => r.fecha).filter(Boolean)).size || 1;
+  const per = {};
+  rows.forEach(r => { const p = normKey(r.producto || ''); if(p) per[p] = (per[p] || 0) + (Number(r.cantidad) || 1); });
+  const out = {};
+  Object.entries(per).forEach(([p, u]) => { out[p] = u / days; });
+  return out;
+}
+
+function productDemand(p){
+  const sim = simState();
+  if(sim.demand[p] !== undefined && sim.demand[p] !== '' && sim.demand[p] !== null) return Number(sim.demand[p]) || 0;
+  const avg = salesDailyAvg()[normKey(p)];
+  return avg !== undefined ? Math.round(avg * 10) / 10 : 0;
+}
+
+function computeSim(){
+  const sim = simState();
+  const days = Number(sim.days) || 7;
+  const growth = 1 + (Number(sim.growth) || 0) / 100;
+  const safety = 1 + (Number(sim.safety) || 0) / 100;
+  const globalYield = Math.max(0.01, (Number(sim.yield) || 100) / 100);
+  const need = {};
+  simProducts().forEach(p => {
+    const units = productDemand(p) * days * growth * safety;
+    recipeRows().filter(r => r.producto === p).forEach(r => {
+      const unidad = r.unidad || 'unidad';
+      const key = normKey(r.insumo || 'insumo') + '|' + unidad;
+      const y = (Number(r.rendimiento) || 0) > 0 ? Math.max(0.01, Number(r.rendimiento) / 100) : globalYield;
+      need[key] = need[key] || { insumo: r.insumo || 'Insumo', unidad, neto: 0, bruto: 0, costoU: 0 };
+      const neto = units * (Number(r.cantidad) || 0);
+      need[key].neto += neto;
+      need[key].bruto += neto / y;
+      if(Number(r.costo)) need[key].costoU = Number(r.costo);
+    });
+  });
+  const invMap = {};
+  (((state.datasets || {}).inventory) || []).forEach(i => {
+    invMap[normKey(i.producto || '')] = { stock: Number(i.stock) || 0, costo: Number(i.costo) || 0 };
+  });
+  return Object.values(need).map(n => {
+    const inv = invMap[normKey(n.insumo)];
+    const stock = inv ? inv.stock : null;
+    const comprar = Math.max(0, n.bruto - (stock || 0));
+    const costoU = n.costoU || (inv ? inv.costo : 0);
+    return { ...n, stock, comprar, costoCompra: comprar * costoU };
+  }).sort((a, b) => b.costoCompra - a.costoCompra || b.bruto - a.bruto);
+}
+
+function fmtQty(v, u){
+  if(u === 'g' && v >= 1000) return `${fmtNum(Math.round(v))} g (${(v/1000).toFixed(1)} kg)`;
+  if(u === 'ml' && v >= 1000) return `${fmtNum(Math.round(v))} ml (${(v/1000).toFixed(1)} l)`;
+  return `${fmtNum(Math.round(v * 10) / 10)} ${u}`;
+}
+
+function renderSimulator(){
+  const el = $('recipesTable'); if(!el) return;
+  el.innerHTML = recipeRows().length
+    ? table(['Producto','Insumo','Cant./unidad','Unidad','Costo insumo','Rendim.',''], recipeRows().map((r, i) => [
+        escapeHtml(r.producto || ''), escapeHtml(r.insumo || ''), fmtNum(r.cantidad), escapeHtml(r.unidad || 'unidad'),
+        r.costo ? money.format(r.costo) : '—', r.rendimiento ? r.rendimiento + '%' : '—', del('recipes', i)
+      ]))
+    : '<div class="empty">Agrega tu primera receta o descarga la plantilla de ejemplo.</div>';
+  renderSimDemand();
+  renderSimResults();
+}
+
+function renderSimDemand(){
+  const el = $('simDemandTable'); if(!el) return;
+  const prods = simProducts();
+  window.__simProds = prods;
+  const avg = salesDailyAvg();
+  el.innerHTML = prods.length
+    ? `<table><thead><tr><th>Producto</th><th>Demanda diaria (unidades)</th><th>Fuente</th></tr></thead><tbody>${prods.map((p, i) => {
+        const sim = simState();
+        const manual = sim.demand[p] !== undefined && sim.demand[p] !== '' && sim.demand[p] !== null;
+        const hist = avg[normKey(p)];
+        const fuente = manual ? 'Ajuste manual' : (hist !== undefined ? 'Promedio de tus ventas reales' : 'Sin historial: escribe un estimado');
+        return `<tr><td>${escapeHtml(p)}</td><td><input type="number" step="any" min="0" style="max-width:140px" value="${productDemand(p)}" onchange="setSimDemandIdx(${i}, this.value)"></td><td>${fuente}</td></tr>`;
+      }).join('')}</tbody></table>`
+    : '<div class="empty">Agrega recetas en el punto 1 para simular la demanda.</div>';
+}
+
+function setSimDemandIdx(i, value){
+  const p = (window.__simProds || [])[i];
+  if(p === undefined) return;
+  simState().demand[p] = value === '' ? '' : Number(value);
+  persist();
+}
+window.setSimDemandIdx = setSimDemandIdx;
+
+function renderSimResults(){
+  const kel = $('simKpis'), rel = $('simResults'); if(!rel) return;
+  const rows = computeSim();
+  const sim = simState();
+  const totalCompra = rows.reduce((a, r) => a + r.costoCompra, 0);
+  const nComprar = rows.filter(r => r.comprar > 0.01).length;
+  kel.innerHTML = [
+    ['Insumos calculados', fmtNum(rows.length), `Horizonte de ${sim.days} día(s) · crecimiento ${sim.growth}% · seguridad ${sim.safety}%`],
+    ['Insumos a comprar', fmtNum(nComprar), 'La necesidad supera tu stock actual'],
+    ['Costo estimado de compras', money.format(totalCompra), 'Según los costos de tus recetas o inventario']
+  ].map(([t, v, c]) => `<div class="kpi-card"><small>${t}</small><strong>${v}</strong><span>${c}</span></div>`).join('');
+  rel.innerHTML = rows.length
+    ? table(['Insumo','Necesidad neta','Necesidad bruta (rendimiento)','Stock actual','A comprar','Costo compra','Estado'], rows.map(r => [
+        escapeHtml(r.insumo), fmtQty(r.neto, r.unidad), fmtQty(r.bruto, r.unidad),
+        r.stock === null ? '—' : fmtQty(r.stock, r.unidad), fmtQty(r.comprar, r.unidad),
+        r.costoCompra ? money.format(r.costoCompra) : '—',
+        r.comprar > 0.01 ? '<span class="badge bad">Comprar</span>' : '<span class="badge good">Cubierto</span>'
+      ]))
+    : '<div class="empty">Sin recetas aún. Agrégalas en el punto 1 para calcular insumos.</div>';
 }
 
 // ===== One Pager ejecutivo =====
