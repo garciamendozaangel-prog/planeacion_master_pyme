@@ -7,7 +7,7 @@ const panels = [
   ['empresa', '1. Empresa'], ['circulo', '2. Círculo dorado'], ['diagnostico', '3. Diagnóstico'], ['foda', '4. FODA'],
   ['pestel', '5. PESTEL'], ['objetivos', '6. SMART'], ['estrategias', '7. Estrategias'], ['presupuesto', '8. Presupuesto'],
   ['kpis', '9. KPIs'], ['seguimiento', '10. Seguimiento'], ['dashboard', '11. Dashboard'],
-  ['datos', '12. Datos'], ['reportes', '13. Reportes']
+  ['datos', '12. Datos'], ['reportes', '13. Reportes'], ['onepager', '14. One Pager']
 ];
 
 let schema = null;
@@ -331,6 +331,7 @@ function bindEvents(){
   $('btnTplVentas').onclick = () => downloadTemplate('sales');
   $('btnTplGastos').onclick = () => downloadTemplate('expenses');
   $('btnTplInventario').onclick = () => downloadTemplate('inventory');
+  $('btnPrintOnePager').onclick = () => { collectFormState(); renderOnePager(); window.print(); };
   $('btnExport').onclick = exportJson;
   $('btnDemo').onclick = loadDemo;
   $('btnSave').onclick = savePlan;
@@ -355,6 +356,7 @@ function renderAll(){
   renderCharts();
   renderDataStatus();
   renderReports();
+  renderOnePager();
 }
 function diagnosticScore(){
   const totalWeight = schema.diagnostic_questions.reduce((a,q)=>a+q.weight,0);
@@ -862,6 +864,76 @@ function drawReportCharts(s, g){
     const cats = Object.entries(g.byCat).sort((a,b) => b[1] - a[1]).slice(0, 8);
     if(cats.length) drawBarChart(ctx, cats.map(c => c[0]), cats.map(c => c[1]), '$');
   }
+}
+
+// ===== One Pager ejecutivo =====
+function renderOnePager(){
+  const el = $('onePager'); if(!el) return;
+  const c = state.company || {}, gc = state.goldenCircle || {};
+  const mats = Object.entries(areaMaturities());
+  const s = salesSummary(), budget = budgetVariance();
+  const alerts = planAlerts().slice(0, 3);
+  const objectives = state.objectives.slice(0, 4);
+  const initiatives = [...state.initiatives].sort((a,b) => (b.priority === 'Alta' ? 1 : 0) - (a.priority === 'Alta' ? 1 : 0)).slice(0, 4);
+  const kpis = state.kpis.slice(0, 5);
+  const topSwot = t => state.swot.filter(x => x.type === t).sort((a,b) => b.impact * b.probability - a.impact * a.probability).slice(0, 2);
+  const fecha = new Date().toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' });
+  const initials = (c.name || 'PM').trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  const chip = (l, v) => `<div class="op-chip"><small>${l}</small><strong>${v}</strong></div>`;
+  const bar = pct => `<div class="op-bar"><span style="width:${Math.max(0, Math.min(100, pct))}%"></span></div>`;
+
+  el.innerHTML = `
+  <div class="op-header">
+    <div class="op-brand">${escapeHtml(initials)}</div>
+    <div class="op-title">
+      <h1>${escapeHtml(c.name || 'Mi Empresa')}</h1>
+      <p>${escapeHtml([c.sector, c.city, c.country].filter(Boolean).join(' · ') || 'Planeación estratégica 360')}</p>
+    </div>
+    <div class="op-date"><strong>Resumen Ejecutivo</strong><br>Planeación estratégica 360<br>${fecha}</div>
+  </div>
+  <div class="op-chips">
+    ${chip('Madurez', diagnosticScore() + '%')}
+    ${chip('Iniciativas', initiativeCompletion() + '%')}
+    ${chip('KPIs', kpiCompletion() + '%')}
+    ${chip('Var. presupuesto', compactMoney(budget.variance))}
+    ${s.count ? chip('Ventas', compactMoney(s.total)) : chip('Empleados', fmtNum(c.employees || 0))}
+    ${s.count ? chip('Margen bruto', s.marginPct + '%') : chip('Ventas/mes aprox.', compactMoney(c.revenue || 0))}
+  </div>
+  <div class="op-grid">
+    <div class="op-box">
+      <h3>Propósito · Círculo dorado</h3>
+      <p><strong>Por qué:</strong> ${escapeHtml(gc.why || 'Por definir')}</p>
+      <p><strong>Cómo:</strong> ${escapeHtml(gc.how || 'Por definir')}</p>
+      <p><strong>Qué:</strong> ${escapeHtml(gc.what || 'Por definir')}</p>
+    </div>
+    <div class="op-box">
+      <h3>Madurez por área</h3>
+      ${mats.map(([a, p]) => `<div class="op-mat"><span>${escapeHtml(short(a, 24))}</span>${bar(p)}<strong>${p}%</strong></div>`).join('')}
+    </div>
+    <div class="op-box">
+      <h3>FODA priorizado</h3>
+      <div class="op-swot">
+        ${['Fortaleza','Oportunidad','Debilidad','Amenaza'].map(t => `<div><strong>${t}s</strong>${topSwot(t).map(x => `<p>· ${escapeHtml(short(x.text, 55))}</p>`).join('') || '<p>—</p>'}</div>`).join('')}
+      </div>
+    </div>
+    <div class="op-box">
+      <h3>Objetivos SMART</h3>
+      ${objectives.length ? objectives.map(o => `<p>· <strong>${escapeHtml(o.area || '')}:</strong> ${escapeHtml(short(o.objective || '', 55))} <em>(${escapeHtml(o.deadline || 'sin fecha')} · ${escapeHtml(o.owner || 'sin responsable')})</em></p>`).join('') : '<p>Aún sin objetivos definidos.</p>'}
+    </div>
+    <div class="op-box">
+      <h3>Iniciativas clave</h3>
+      ${initiatives.length ? initiatives.map(i => `<div class="op-mat"><span>${escapeHtml(short(i.name || '', 28))}</span>${bar(i.progress || 0)}<strong>${i.progress || 0}%</strong></div>`).join('') : '<p>Aún sin iniciativas registradas.</p>'}
+    </div>
+    <div class="op-box">
+      <h3>KPIs</h3>
+      ${kpis.length ? kpis.map(k => `<p>· ${escapeHtml(short(k.name || '', 32))}: ${fmtNum(k.actual)} / ${fmtNum(k.target)} ${badge(kpiPct(k), kpiPct(k) + '%')}</p>`).join('') : '<p>Aún sin KPIs registrados.</p>'}
+    </div>
+  </div>
+  <div class="op-box op-full">
+    <h3>Prioridades y alertas del plan</h3>
+    ${alerts.length ? alerts.map(a => `<p>⚠ ${escapeHtml(a.text)}</p>`).join('') : '<p>Sin alertas activas: el plan está bajo control. Mantener comité mensual de seguimiento.</p>'}
+  </div>
+  <div class="op-footer">Generado con Planeación Master PYME LATAM · ${escapeHtml(c.name || '')} · ${fecha}</div>`;
 }
 
 // ===== Guardado multi-empresa =====
