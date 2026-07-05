@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Planeación Master PYME LATAM</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="authScreen" class="auth-screen" hidden>
+    <div class="auth-card">
+      <div class="brand" style="border:0; padding:0; margin-bottom:6px">
+        <span class="brand-mark">PM</span>
+        <div>
+          <strong>Planeación Master</strong>
+          <small>PYME LATAM</small>
+        </div>
+      </div>
+      <p>Planeación estratégica 360 para tu empresa. Inicia sesión o crea tu cuenta.</p>
+      <div class="auth-tabs">
+        <button id="tabLogin" class="auth-tab active">Iniciar sesión</button>
+        <button id="tabRegister" class="auth-tab">Crear cuenta</button>
+      </div>
+      <form id="loginForm" class="auth-form">
+        <label>Correo <input id="loginEmail" type="email" autocomplete="email" required /></label>
+        <label>Contraseña <input id="loginPassword" type="password" autocomplete="current-password" required /></label>
+        <button type="submit" class="btn primary">Entrar</button>
+      </form>
+      <form id="registerForm" class="auth-form" hidden>
+        <label>Tu nombre <input id="registerName" autocomplete="name" /></label>
+        <label>Correo <input id="registerEmail" type="email" autocomplete="email" required /></label>
+        <label>Contraseña (mínimo 8 caracteres) <input id="registerPassword" type="password" autocomplete="new-password" minlength="8" required /></label>
+        <button type="submit" class="btn primary">Crear cuenta</button>
+      </form>
+      <p id="authError" class="auth-error" hidden></p>
+    </div>
+  </div>
+
+  <div id="app" hidden>
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark">PM</span>
+      <div>
+        <strong>Planeación Master</strong>
+        <small>PYME LATAM</small>
+      </div>
+    </div>
+    <div class="sidebar-card company-card">
+      <small>Empresa activa</small>
+      <select id="companySelect"></select>
+      <button id="btnNewCompany" class="btn ghost">+ Nueva empresa</button>
+    </div>
+    <nav id="nav"></nav>
+    <div class="sidebar-card">
+      <small>Estado del plan</small>
+      <div class="mini-progress"><span id="sideProgress"></span></div>
+      <strong id="sideProgressText">0%</strong>
+      <div class="user-row">
+        <small id="userEmail"></small>
+        <button id="btnLogout" class="link-btn">Salir</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h1>Herramienta master de planeación estratégica</h1>
+        <p>Diagnóstico, objetivos, presupuesto, KPIs y seguimiento por todas las áreas de la empresa.</p>
+      </div>
+      <div class="actions">
+        <button id="btnDemo" class="btn secondary">Cargar demo</button>
+        <button id="btnExport" class="btn secondary">Exportar JSON</button>
+        <button id="btnSave" class="btn primary">Guardar</button>
+      </div>
+    </header>
+
+    <section class="kpi-grid" id="kpiGrid"></section>
+
+    <section class="panel active" data-panel="empresa">
+      <div class="panel-header">
+        <span class="pill">Paso 1</span>
+        <h2>Perfil de empresa</h2>
+        <p>Datos iniciales para adaptar el plan a una PYME de Latinoamérica. El sector activa recomendaciones específicas de tu industria.</p>
+      </div>
+      <div class="form-grid">
+        <label>Nombre de empresa <input id="companyName" placeholder="Ej: Taquería María Bonita" /></label>
+        <label>País <input id="companyCountry" placeholder="Colombia" /></label>
+        <label>Ciudad <input id="companyCity" placeholder="Barranquilla" /></label>
+        <label>Sector <select id="companySector"></select></label>
+        <label>Empleados <input id="companyEmployees" type="number" min="0" placeholder="12" /></label>
+        <label>Ventas mensuales aproximadas <input id="companyRevenue" type="number" min="0" placeholder="50000000" /></label>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="circulo">
+      <div class="panel-header">
+        <span class="pill">Paso 2</span>
+        <h2>Círculo dorado</h2>
+        <p>Define el propósito, la forma de competir y la oferta central.</p>
+      </div>
+      <div class="three-col">
+        <label>¿Por qué existe la empresa? <textarea id="why" rows="6"></textarea></label>
+        <label>¿Cómo entrega valor? <textarea id="how" rows="6"></textarea></label>
+        <label>¿Qué vende o entrega? <textarea id="what" rows="6"></textarea></label>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="diagnostico">
+      <div class="panel-header">
+        <span class="pill">Paso 3</span>
+        <h2>Diagnóstico estratégico 360</h2>
+        <p>Califica de 1 a 5 la madurez de cada área. El sistema calcula el score ponderado.</p>
+      </div>
+      <div id="diagnosticList" class="stack"></div>
+    </section>
+
+    <section class="panel" data-panel="foda">
+      <div class="panel-header">
+        <span class="pill">Paso 4</span>
+        <h2>FODA priorizado</h2>
+        <p>Convierte hallazgos internos y externos en prioridades accionables.</p>
+      </div>
+      <div class="entry-row">
+        <select id="swotType"></select>
+        <select id="swotArea"></select>
+        <input id="swotText" placeholder="Describe el hallazgo" />
+        <input id="swotImpact" type="number" min="1" max="5" value="3" title="Impacto 1-5" />
+        <input id="swotProbability" type="number" min="1" max="5" value="3" title="Probabilidad 1-5" />
+        <button id="addSwot" class="btn primary">Agregar</button>
+      </div>
+      <div id="swotTable" class="table-card"></div>
+      <div class="panel-header" style="margin-top:26px">
+        <h2>Matriz estratégica cruzada</h2>
+        <p>Se genera automáticamente al combinar tus hallazgos priorizados: FO (ofensivas), FA (defensivas), DO (adaptación) y DA (supervivencia).</p>
+      </div>
+      <div id="crossMatrix" class="cross-matrix"></div>
+    </section>
+
+    <section class="panel" data-panel="pestel">
+      <div class="panel-header">
+        <span class="pill">Paso 5</span>
+        <h2>PESTEL</h2>
+        <p>Analiza fuerzas externas y conviértelas en oportunidades, amenazas y respuestas.</p>
+      </div>
+      <div class="entry-row">
+        <select id="pestelFactor"></select>
+        <input id="pestelDescription" placeholder="Factor externo relevante" />
+        <input id="pestelImpact" type="number" min="1" max="5" value="3" />
+        <input id="pestelOpportunity" placeholder="Respuesta estratégica" />
+        <button id="addPestel" class="btn primary">Agregar</button>
+      </div>
+      <div id="pestelTable" class="table-card"></div>
+    </section>
+
+    <section class="panel" data-panel="objetivos">
+      <div class="panel-header">
+        <span class="pill">Paso 6</span>
+        <h2>Objetivos SMART</h2>
+        <p>Objetivos específicos, medibles, alcanzables, relevantes y con fecha.</p>
+      </div>
+      <div class="entry-row wrap">
+        <select id="objectiveArea"></select>
+        <input id="objectiveText" placeholder="Objetivo SMART" />
+        <input id="objectiveMetric" placeholder="Métrica" />
+        <input id="objectiveBaseline" type="number" placeholder="Base" />
+        <input id="objectiveTarget" type="number" placeholder="Meta" />
+        <input id="objectiveDeadline" type="date" />
+        <input id="objectiveOwner" placeholder="Responsable" />
+        <button id="addObjective" class="btn primary">Agregar</button>
+      </div>
+      <div id="objectivesTable" class="table-card"></div>
+    </section>
+
+    <section class="panel" data-panel="estrategias">
+      <div class="panel-header">
+        <span class="pill">Paso 7</span>
+        <h2>Estrategias e iniciativas</h2>
+        <p>Transforma objetivos en proyectos con dueño, prioridad, fecha y avance.</p>
+      </div>
+      <div class="entry-row wrap">
+        <select id="initiativeArea"></select>
+        <input id="initiativeName" placeholder="Nombre de la iniciativa" />
+        <input id="initiativeOwner" placeholder="Responsable" />
+        <select id="initiativePriority"></select>
+        <select id="initiativeStatus"></select>
+        <input id="initiativeStart" type="date" />
+        <input id="initiativeEnd" type="date" />
+        <input id="initiativeProgress" type="number" min="0" max="100" placeholder="%" />
+        <button id="addInitiative" class="btn primary">Agregar</button>
+      </div>
+      <div id="initiativesTable" class="table-card"></div>
+    </section>
+
+    <section class="panel" data-panel="presupuesto">
+      <div class="panel-header">
+        <span class="pill">Paso 8</span>
+        <h2>Presupuesto por área</h2>
+        <p>Planeado vs real por concepto. Si la desviación supera el 10%, se genera alerta automática.</p>
+      </div>
+      <div class="entry-row wrap">
+        <select id="budgetArea"></select>
+        <input id="budgetConcept" placeholder="Concepto" />
+        <select id="budgetMonth"></select>
+        <input id="budgetPlanned" type="number" placeholder="Planeado" />
+        <input id="budgetActual" type="number" placeholder="Real" />
+        <button id="addBudget" class="btn primary">Agregar</button>
+      </div>
+      <div id="budgetTable" class="table-card"></div>
+    </section>
+
+    <section class="panel" data-panel="kpis">
+      <div class="panel-header">
+        <span class="pill">Paso 9</span>
+        <h2>KPIs y tablero</h2>
+        <p>Seguimiento de metas por área. Semáforo: rojo &lt;70%, amarillo 70-89%, verde ≥90%.</p>
+      </div>
+      <div class="entry-row wrap">
+        <select id="kpiArea"></select>
+        <input id="kpiName" placeholder="KPI" />
+        <input id="kpiTarget" type="number" placeholder="Meta" />
+        <input id="kpiActual" type="number" placeholder="Actual" />
+        <input id="kpiUnit" placeholder="Unidad" />
+        <input id="kpiOwner" placeholder="Responsable" />
+        <button id="addKpi" class="btn primary">Agregar</button>
+      </div>
+      <div id="kpisTable" class="table-card"></div>
+    </section>
+
+    <section class="panel" data-panel="seguimiento">
+      <div class="panel-header">
+        <span class="pill">Paso 10</span>
+        <h2>Seguimiento y comité</h2>
+        <p>Registra reuniones, decisiones y compromisos. La agenda del comité se genera sola con base en tu plan.</p>
+      </div>
+      <div class="chart-card" style="margin-bottom:18px; padding:18px">
+        <h3>Agenda automática del próximo comité</h3>
+        <div id="committeeAgenda" class="recommendations"></div>
+      </div>
+      <div class="entry-row wrap">
+        <input id="meetingDate" type="date" />
+        <select id="meetingType"></select>
+        <input id="meetingDecision" placeholder="Decisión tomada" />
+        <input id="meetingCommitment" placeholder="Compromiso" />
+        <input id="meetingOwner" placeholder="Responsable" />
+        <input id="meetingDeadline" type="date" />
+        <select id="meetingStatus"></select>
+        <button id="addMeeting" class="btn primary">Agregar</button>
+      </div>
+      <div id="meetingsTable" class="table-card"></div>
+    </section>
+
+    <section class="panel" data-panel="dashboard">
+      <div class="panel-header">
+        <span class="pill">Paso 11</span>
+        <h2>Dashboard ejecutivo</h2>
+        <p>Resumen para comité mensual, seguimiento semanal o presentación a socios.</p>
+      </div>
+      <div class="chart-card" style="margin-bottom:16px; padding:18px">
+        <h3>Alertas del plan</h3>
+        <div id="alerts" class="recommendations"></div>
+      </div>
+      <div class="dashboard-grid">
+        <div class="chart-card"><h3>Madurez por área</h3><canvas id="maturityChart" width="900" height="360"></canvas></div>
+        <div class="chart-card"><h3>Presupuesto: variación real vs planeado</h3><canvas id="budgetChart" width="900" height="360"></canvas></div>
+        <div class="chart-card"><h3>Roadmap de iniciativas</h3><div id="roadmap"></div></div>
+        <div class="chart-card"><h3>Recomendaciones inteligentes</h3><div id="recommendations" class="recommendations"></div></div>
+      </div>
+    </section>
+  </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

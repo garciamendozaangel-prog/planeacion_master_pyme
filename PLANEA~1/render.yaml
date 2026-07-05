@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: planeacion-master-pyme
+    runtime: python
+    plan: free
+    buildCommand: ""
+    startCommand: python server.py
+    envVars:
+      - key: PORT
+        value: 10000
+    disk:
+      name: datos
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
